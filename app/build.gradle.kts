@@ -104,6 +104,7 @@ dependencies {
   implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.firebase.auth)
   implementation(libs.firebase.firestore)
+  implementation("com.google.android.gms:play-services-auth:21.0.0")
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)

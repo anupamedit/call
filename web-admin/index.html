@@ -5,13 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GST Precision - Web Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Firebase App (the core Firebase SDK) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, deleteDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // You MUST add a Web App to your Firebase Project and copy its config here.
-    // The current config uses your Android API key, which may not support all Web features perfectly.
     const firebaseConfig = {
       apiKey: "AIzaSyBeMsTGjqVGl6sDE64tDGMTYL4sXUs_smk",
       projectId: "custom-mix-241020",
@@ -23,19 +20,23 @@
 
     async function loadInvoices() {
       const list = document.getElementById('invoice-list');
-      list.innerHTML = 'Loading...';
+      list.innerHTML = '<tr><td colspan="4" class="p-4 text-center">Loading...</td></tr>';
       try {
         const querySnapshot = await getDocs(collection(db, "invoices"));
         list.innerHTML = '';
+        if (querySnapshot.empty) {
+           list.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">No invoices found.</td></tr>';
+           return;
+        }
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const tr = document.createElement('tr');
-          tr.className = "border-b";
+          tr.className = "border-b hover:bg-gray-50 transition-colors";
           tr.innerHTML = `
-            <td class="p-2">${data.customerName || 'N/A'}</td>
-            <td class="p-2">${data.gstin || 'N/A'}</td>
-            <td class="p-2 font-mono">₹${data.totalAmount?.toFixed(2) || '0.00'}</td>
-            <td class="p-2"><button data-id="${docSnap.id}" class="delete-btn text-red-500 hover:text-red-700">Delete</button></td>
+            <td class="p-3">${data.customerName || 'N/A'}</td>
+            <td class="p-3">${data.gstin || 'N/A'}</td>
+            <td class="p-3 font-mono font-bold">₹${data.totalAmount?.toFixed(2) || '0.00'}</td>
+            <td class="p-3"><button data-id="${docSnap.id}" class="delete-btn text-red-600 hover:text-red-800 font-semibold px-3 py-1 rounded bg-red-50 hover:bg-red-100 transition-colors">Delete</button></td>
           `;
           list.appendChild(tr);
         });
@@ -43,7 +44,7 @@
         document.querySelectorAll('.delete-btn').forEach(btn => {
           btn.addEventListener('click', async (e) => {
              const id = e.target.getAttribute('data-id');
-             if(confirm("Delete this invoice?")) {
+             if(confirm("Delete this invoice permanently?")) {
                 await deleteDoc(doc(db, "invoices", id));
                 loadInvoices();
              }
@@ -52,37 +53,193 @@
 
       } catch (e) {
         console.error("Error fetching invoices: ", e);
-        list.innerHTML = `<span class="text-red-500">Error loading data. Check console.</span>`;
+        list.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500 font-medium">Error loading data: ${e.message}</td></tr>`;
       }
     }
 
-    window.onload = loadInvoices;
+    async function loadConfig() {
+        try {
+            const configRef = doc(db, "appConfig", "settings");
+            const configSnap = await getDoc(configRef);
+            if (configSnap.exists()) {
+                const data = configSnap.data();
+                document.getElementById('maintenance-mode').checked = data.maintenanceMode || false;
+                document.getElementById('banner-message').value = data.bannerMessage || '';
+                document.getElementById('feature-history').checked = data.enableHistory !== false; // Default true
+            }
+        } catch (e) {
+            console.error("Error loading config:", e);
+        }
+    }
+
+    async function saveConfig(e) {
+        e.preventDefault();
+        const btn = document.getElementById('save-config-btn');
+        btn.innerHTML = 'Saving...';
+        btn.disabled = true;
+        
+        const maintenanceMode = document.getElementById('maintenance-mode').checked;
+        const bannerMessage = document.getElementById('banner-message').value;
+        const enableHistory = document.getElementById('feature-history').checked;
+
+        try {
+            await setDoc(doc(db, "appConfig", "settings"), {
+                maintenanceMode,
+                bannerMessage,
+                enableHistory,
+                updatedAt: new Date().toISOString()
+            });
+            btn.innerHTML = 'Saved Successfully!';
+            btn.classList.replace('bg-blue-600', 'bg-green-600');
+            setTimeout(() => {
+                btn.innerHTML = 'Save Configuration';
+                btn.classList.replace('bg-green-600', 'bg-blue-600');
+                btn.disabled = false;
+            }, 2000);
+        } catch (error) {
+            console.error("Error saving config:", error);
+            btn.innerHTML = 'Error Saving';
+            btn.classList.replace('bg-blue-600', 'bg-red-600');
+            setTimeout(() => {
+                btn.innerHTML = 'Save Configuration';
+                btn.classList.replace('bg-red-600', 'bg-blue-600');
+                btn.disabled = false;
+            }, 2000);
+        }
+    }
+
+    window.onload = () => {
+        loadInvoices();
+        loadConfig();
+        document.getElementById('config-form').addEventListener('submit', saveConfig);
+        
+        // Tab switching
+        document.getElementById('tab-invoices').addEventListener('click', () => {
+            document.getElementById('panel-invoices').classList.remove('hidden');
+            document.getElementById('panel-config').classList.add('hidden');
+            document.getElementById('tab-invoices').classList.add('border-blue-600', 'text-blue-600');
+            document.getElementById('tab-invoices').classList.remove('border-transparent', 'text-gray-500');
+            document.getElementById('tab-config').classList.remove('border-blue-600', 'text-blue-600');
+            document.getElementById('tab-config').classList.add('border-transparent', 'text-gray-500');
+        });
+        
+        document.getElementById('tab-config').addEventListener('click', () => {
+            document.getElementById('panel-config').classList.remove('hidden');
+            document.getElementById('panel-invoices').classList.add('hidden');
+            document.getElementById('tab-config').classList.add('border-blue-600', 'text-blue-600');
+            document.getElementById('tab-config').classList.remove('border-transparent', 'text-gray-500');
+            document.getElementById('tab-invoices').classList.remove('border-blue-600', 'text-blue-600');
+            document.getElementById('tab-invoices').classList.add('border-transparent', 'text-gray-500');
+        });
+    };
   </script>
 </head>
-<body class="bg-gray-100 p-8">
-  <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
-    <h1 class="text-2xl font-bold mb-6 text-blue-800">GST Precision - Admin Panel</h1>
-    <p class="text-gray-600 mb-6">Deploy this folder to Vercel/GitHub pages. It connects to your Firebase database to view and manage app data.</p>
-    
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-xl font-semibold">Invoices</h2>
-      <button onclick="location.reload()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Refresh</button>
+<body class="bg-gray-50 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
+      <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+              <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold">G</div>
+              <h1 class="text-xl font-bold text-gray-900">GST Precision Admin</h1>
+          </div>
+          <div class="text-sm text-gray-500">Connected to Firebase</div>
+      </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Tabs -->
+    <div class="border-b border-gray-200 mb-8">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button id="tab-invoices" class="border-blue-600 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                Invoice Database
+            </button>
+            <button id="tab-config" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                App Configuration
+            </button>
+        </nav>
     </div>
 
-    <div class="overflow-x-auto">
-      <table class="w-full text-left border-collapse">
-        <thead>
-          <tr class="bg-gray-50 border-b">
-            <th class="p-2">Customer Name</th>
-            <th class="p-2">GSTIN</th>
-            <th class="p-2">Total Amount</th>
-            <th class="p-2">Action</th>
-          </tr>
-        </thead>
-        <tbody id="invoice-list">
-        </tbody>
-      </table>
+    <!-- Invoices Panel -->
+    <div id="panel-invoices" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+        <div>
+            <h2 class="text-lg font-semibold text-gray-900">All Invoices</h2>
+            <p class="text-sm text-gray-500 mt-1">Manage synced invoices from the mobile app.</p>
+        </div>
+        <button onclick="loadInvoices()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium text-sm transition-colors shadow-sm flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            Refresh
+        </button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Name</th>
+              <th class="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider">GSTIN</th>
+              <th class="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
+              <th class="p-4 text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Action</th>
+            </tr>
+          </thead>
+          <tbody id="invoice-list" class="bg-white divide-y divide-gray-200">
+            <!-- Invoices populated here -->
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
+
+    <!-- Configuration Panel -->
+    <div id="panel-config" class="hidden">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden max-w-2xl">
+            <div class="p-6 border-b border-gray-200 bg-gray-50">
+                <h2 class="text-lg font-semibold text-gray-900">Remote Application Control</h2>
+                <p class="text-sm text-gray-500 mt-1">Changes made here will instantly reflect in the Android app via Firebase.</p>
+            </div>
+            
+            <form id="config-form" class="p-6 space-y-6">
+                <!-- Maintenance Mode -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-900">Maintenance Mode</h3>
+                        <p class="text-sm text-gray-500">Disable app access for all users except admins.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="maintenance-mode" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <hr class="border-gray-200">
+
+                <!-- Global Banner -->
+                <div>
+                    <label for="banner-message" class="block text-sm font-medium text-gray-900 mb-1">Global Broadcast Message</label>
+                    <p class="text-sm text-gray-500 mb-3">Display an announcement banner at the top of the app. Leave blank to hide.</p>
+                    <textarea id="banner-message" rows="3" class="w-full rounded-lg border-gray-300 border p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" placeholder="e.g., We are performing scheduled upgrades this weekend..."></textarea>
+                </div>
+
+                <hr class="border-gray-200">
+
+                <!-- Feature Toggles -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-900">Enable History Tab</h3>
+                        <p class="text-sm text-gray-500">Allow users to view past synced invoices.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="feature-history" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit" id="save-config-btn" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                        Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+  </main>
 </body>
 </html>
