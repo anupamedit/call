@@ -1,0 +1,6 @@
+{
+  "name": "GST Precision",
+  "description": "Professional GST Calculator and Billing application with Firebase sync and Web Admin support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

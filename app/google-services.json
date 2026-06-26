@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "96271887433",
+    "firebase_url": "https://custom-mix-241020.firebaseio.com",
+    "project_id": "custom-mix-241020",
+    "storage_bucket": "custom-mix-241020.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:96271887433:android:ddb88f3df45b45874e6398",
+        "android_client_info": {
+          "package_name": "com.aistudio.gstprecision.mxpldx"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeMsTGjqVGl6sDE64tDGMTYL4sXUs_smk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
